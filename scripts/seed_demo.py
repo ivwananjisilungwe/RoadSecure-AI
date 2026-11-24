@@ -1,9 +1,12 @@
 """Populate the running local RoadSecure API with reproducible synthetic scenarios."""
 import getpass
 import os
+from pathlib import Path
+import sys
 
 import httpx
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from backend.app.ml.synthetic import simulate
 
 SAMPLES = (
@@ -12,15 +15,18 @@ SAMPLES = (
     ("normal_transfer", "vehicle_inspection", None),
     ("legitimate_admin", "administration", None),
     ("failed_login", "driver_licensing", "OPEN"),
-    ("privileged_action", "administration", "INVESTIGATING"),
-    ("combined", "network_infrastructure", "RESOLVED"),
-    ("large_transfer", "transport_payments", None),
+    ("unknown_device", "network_infrastructure", "OPEN"),
+    ("outside_hours", "vehicle_registration", "INVESTIGATING"),
+    ("large_transfer", "transport_payments", "INVESTIGATING"),
+    ("privileged_action", "administration", "RESOLVED"),
+    ("sensitive_access", "administration", "CLOSED"),
+    ("combined", "network_infrastructure", "CLOSED"),
 )
 
 
 def main():
     username = os.getenv("ROADSECURE_ADMIN_USERNAME", "admin")
-    password = getpass.getpass("RoadSecure administrator password: ")
+    password = os.environ.get("ROADSECURE_ADMIN_PASSWORD") or getpass.getpass("RoadSecure administrator password: ")
     with httpx.Client(base_url="http://127.0.0.1:8000/api/v1", timeout=15, trust_env=False) as client:
         def request(method, path, body=None, allow_conflict=False):
             response = client.request(method, path, json=body)
@@ -47,13 +53,15 @@ def main():
                     "assigned_to": admin["id"],
                 })
                 path = f"/incidents/{incident['id']}"
-                if initial_status in {"INVESTIGATING", "RESOLVED"}:
+                if initial_status in {"INVESTIGATING", "RESOLVED", "CLOSED"}:
                     request("PATCH", path, {"status": "INVESTIGATING"})
                     request("POST", f"{path}/notes", {"note": "Reviewed the generated detection evidence."})
-                if initial_status == "RESOLVED":
+                if initial_status in {"RESOLVED", "CLOSED"}:
                     request("PATCH", path, {
                         "status": "RESOLVED", "resolution": "Documented the cause of the synthetic event.",
                     })
+                if initial_status == "CLOSED":
+                    request("PATCH", path, {"status": "CLOSED"})
         finally:
             request("POST", "/auth/logout")
 

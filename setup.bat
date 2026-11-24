@@ -9,4 +9,5 @@ if not exist .venv\Scripts\python.exe (
 .venv\Scripts\python.exe -m pip install -r backend\requirements.txt || exit /b 1
 call npm --prefix frontend ci || exit /b 1
 call "%~dp0train_model.bat" || exit /b 1
+call npm --prefix frontend run build || exit /b 1
 echo Setup complete. Run start.bat to initialize or reopen the local database.

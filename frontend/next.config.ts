@@ -1,8 +1,12 @@
 import type { NextConfig } from "next";
 
+const projectRoot = __dirname;
+
 const backend = process.env.ROADSECURE_BACKEND_URL || "http://127.0.0.1:8000";
 const config: NextConfig = {
   poweredByHeader: false,
+  turbopack: { root: projectRoot },
+  outputFileTracingRoot: projectRoot,
   devIndicators: false,
   async rewrites() {
     return [
