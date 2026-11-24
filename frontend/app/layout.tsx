@@ -9,6 +9,8 @@ export const metadata: Metadata = {
   description: "Defensive monitoring for synthetic road transport activity",
 };
 
+const themeScript = `(function(){try{var theme=localStorage.getItem('roadsecure-theme');if(theme==='light'||theme==='dark'){document.documentElement.dataset.theme=theme;}}catch(error){}})();`;
+
 export default function Layout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="en"><body>{children}</body></html>;
+  return <html lang="en" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: themeScript }} /></head><body>{children}</body></html>;
 }

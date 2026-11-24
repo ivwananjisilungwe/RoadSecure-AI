@@ -1,11 +1,11 @@
 "use client";
 
 import { QueryClient, QueryClientProvider, useQueryClient, useMutation } from "@tanstack/react-query";
-import { Activity, BarChart3, BrainCircuit, ChevronRight, CircleAlert, Eye, EyeOff, Files, LayoutDashboard, LogOut, RadioTower, Settings, ShieldCheck } from "lucide-react";
+import { Activity, BarChart3, BrainCircuit, ChevronRight, CircleAlert, Eye, EyeOff, Files, LayoutDashboard, LogOut, Moon, RadioTower, Settings, ShieldCheck, Sun } from "lucide-react";
 import { MotionConfig, motion } from "motion/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useSyncExternalStore, useState, type FormEvent } from "react";
 import { api, ApiError, title, write, type Account } from "../lib/api";
 import { Brand, Button, ErrorState, Loading } from "./ui";
 import { useApi } from "./query";
@@ -56,6 +56,33 @@ function Session({ page, id }: { page: string; id?: string }) {
   if (account.isPending || signedOut) return <Loading />;
   if (account.error) return <main className="login-wrap"><ErrorState error={account.error} retry={() => { void account.refetch(); }} /></main>;
   return <Workspace page={page} id={id} account={account.data} />;
+}
+
+function subscribeTheme(callback: () => void) {
+  window.addEventListener("roadsecure-theme-change", callback);
+  return () => window.removeEventListener("roadsecure-theme-change", callback);
+}
+
+function themeSnapshot() {
+  return document.documentElement.dataset.theme === "light" ? "light" : "dark";
+}
+
+function ThemeToggle() {
+  const theme = useSyncExternalStore(subscribeTheme, themeSnapshot, () => "dark");
+
+  function toggle() {
+    const next = theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try {
+      localStorage.setItem("roadsecure-theme", next);
+    } catch {
+      // The theme still applies for this session when storage is unavailable.
+    }
+    window.dispatchEvent(new Event("roadsecure-theme-change"));
+  }
+
+  const label = theme === "dark" ? "Switch to light theme" : "Switch to dark theme";
+  return <Button type="button" variant="quiet" aria-label={label} title={label} aria-pressed={theme === "light"} onClick={toggle}>{theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}</Button>;
 }
 
 function Login() {
@@ -115,7 +142,7 @@ function Workspace({ page, id, account }: { page: string; id?: string; account: 
     <main className="workspace-main" id="main">
       <header className="topbar">
         <div><div className="eyebrow">{section}{id && <><ChevronRight size={11} /> <Link href={`/${page}`}>{name}</Link></>}</div><h1>{id ? detail : name}</h1></div>
-        <div className="account-bar"><span><strong>{account.username}</strong><small>{title(account.role)}</small></span><Button type="button" variant="quiet" aria-label="Sign out" disabled={logout.isPending} onClick={() => logout.mutate()}><LogOut size={18} /></Button></div>
+        <div className="account-bar"><span><strong>{account.username}</strong><small>{title(account.role)}</small></span><ThemeToggle /><Button type="button" variant="quiet" aria-label="Sign out" disabled={logout.isPending} onClick={() => logout.mutate()}><LogOut size={18} /></Button></div>
       </header>
       {logout.error && <ErrorState error={logout.error} />}
       <div className="content" key={`${page}/${id ?? ""}`}>

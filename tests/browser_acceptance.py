@@ -131,6 +131,32 @@ def capture_workspace(page, directory, incident_id, incident_title, alert_id):
             snapshot(page, directory, f"{label}-{size}")
 
 
+def capture_light_theme(page, directory, incident_id, incident_title):
+    page.set_viewport_size({"width": 1440, "height": 900})
+    page.goto("/")
+    page.get_by_role("button", name="Switch to light theme", exact=True).click()
+    expect(page.locator("html")).to_have_attribute("data-theme", "light")
+    page.reload()
+    expect(page.locator("html")).to_have_attribute("data-theme", "light")
+    expect(page.get_by_role("heading", name="Security overview", exact=False)).to_be_visible()
+    expect(page.get_by_text("Events processed", exact=True)).to_be_visible()
+    snapshot(page, directory, "dashboard-light-desktop")
+    page.goto(f"/incidents/{incident_id}")
+    expect(page.get_by_role("heading", name=incident_title, exact=False)).to_be_visible()
+    snapshot(page, directory, "incident-details-light-desktop")
+    page.goto("/evaluation")
+    expect(page.get_by_role("heading", name="Model evaluation", exact=False)).to_be_visible()
+    snapshot(page, directory, "evaluation-light-desktop")
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.goto("/")
+    expect(page.get_by_role("heading", name="Security overview", exact=False)).to_be_visible()
+    expect(page.get_by_text("Events processed", exact=True)).to_be_visible()
+    snapshot(page, directory, "dashboard-light-mobile")
+    page.set_viewport_size({"width": 1440, "height": 900})
+    page.get_by_role("button", name="Switch to dark theme", exact=True).click()
+    expect(page.locator("html")).to_have_attribute("data-theme", "dark")
+
+
 def details_link(page, section):
     matches = page.locator(f'a[href^="/{section}/"]')
     expect(matches).not_to_have_count(0)
@@ -262,6 +288,7 @@ def exercise(page, password, screenshot_dir):
         ) == test_count
     snapshot(page, screenshot_dir, "evaluation-desktop")
     capture_workspace(page, screenshot_dir, incident["id"], incident["title"], alert["id"])
+    capture_light_theme(page, screenshot_dir, incident["id"], incident["title"])
 
     page.goto("/")
     expect(page.get_by_role("link", name="Simulate Activity", exact=True)).to_be_visible()
