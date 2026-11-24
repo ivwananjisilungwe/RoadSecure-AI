@@ -142,7 +142,8 @@ def exercise(page, password, screenshot_dir):
     assert detection["risk_score"] > 0
     snapshot(page, screenshot_dir, "simulator-desktop")
 
-    page.get_by_role("link", name="Security Events", exact=True).click()
+    page.goto("/events")
+    expect(page).to_have_url(f"{FRONTEND_URL}/events")
     event_links = page.locator('a[href^="/events/"]')
     expect(event_links).to_have_count(2)
     page.get_by_label("Severity", exact=True).select_option(alert["severity"])
@@ -152,7 +153,8 @@ def exercise(page, password, screenshot_dir):
     event_links.click()
     expect(page.get_by_role("heading", name="Detection analysis")).to_be_visible()
     snapshot(page, screenshot_dir, "event-desktop")
-    page.get_by_role("link", name="Security Alerts", exact=True).click()
+    page.goto("/alerts")
+    expect(page).to_have_url(f"{FRONTEND_URL}/alerts")
     alert_link = details_link(page, "alerts")
     snapshot(page, screenshot_dir, "alerts-desktop")
     alert_link.click()
