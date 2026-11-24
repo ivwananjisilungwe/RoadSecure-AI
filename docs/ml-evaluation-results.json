@@ -1,0 +1,93 @@
+{
+  "model": {
+    "version": "roadsecure-iforest-v1",
+    "feature_schema": [
+      "failed_login_count",
+      "requests_per_minute",
+      "data_transfer_mb",
+      "outside_working_hours",
+      "unknown_device",
+      "unusual_location",
+      "privileged_action",
+      "sensitive_records_accessed"
+    ],
+    "decision_threshold": 0.4697628196040566,
+    "training_timestamp": "2026-11-24T13:18:16.776545+00:00",
+    "training_fingerprint": "c66d0a9bc84e566ef9f942236c712558b0f919f444aff312867ad494318eb76b",
+    "hyperparameters": {
+      "n_estimators": 180,
+      "contamination": 0.06,
+      "random_state": 42
+    },
+    "dependency_versions": {
+      "numpy": "2.3.5",
+      "scikit-learn": "1.8.0",
+      "joblib": "1.5.3"
+    },
+    "evaluation_artifact": "evaluation.json"
+  },
+  "datasets": {
+    "train": {
+      "count": 5000,
+      "anomalies": 0,
+      "seed": 42,
+      "fingerprint": "c66d0a9bc84e566ef9f942236c712558b0f919f444aff312867ad494318eb76b"
+    },
+    "validation": {
+      "count": 1000,
+      "anomalies": 200,
+      "seed": 1042,
+      "fingerprint": "c593b2764fabcd37e4987afff84461b7d463b8006b86841aee9c8337a02b8ab7"
+    },
+    "test": {
+      "count": 2000,
+      "anomalies": 400,
+      "seed": 2042,
+      "fingerprint": "76ee070eb82be6e851a2c463e5a4896b719382d9b5f1b15c7ffebeb328bf21fc"
+    }
+  },
+  "experiments": {
+    "rules": {
+      "accuracy": 0.8595,
+      "precision": 0.6491228070175439,
+      "recall": 0.6475,
+      "f1_score": 0.6483103879849812,
+      "false_positive_rate": 0.0875,
+      "true_positives": 259,
+      "true_negatives": 1460,
+      "false_positives": 140,
+      "false_negatives": 141,
+      "mean_processing_ms": 0.0006278755,
+      "median_processing_ms": 0.000509,
+      "p95_processing_ms": 0.0009512999999999998
+    },
+    "isolation_forest": {
+      "accuracy": 0.774,
+      "precision": 0.4656084656084656,
+      "recall": 0.88,
+      "f1_score": 0.6089965397923875,
+      "false_positive_rate": 0.2525,
+      "true_positives": 352,
+      "true_negatives": 1196,
+      "false_positives": 404,
+      "false_negatives": 48,
+      "mean_processing_ms": 6.9390023979999995,
+      "median_processing_ms": 6.606357,
+      "p95_processing_ms": 9.213399099999997
+    },
+    "hybrid": {
+      "accuracy": 0.7745,
+      "precision": 0.4663143989431968,
+      "recall": 0.8825,
+      "f1_score": 0.6101987899740708,
+      "false_positive_rate": 0.2525,
+      "true_positives": 353,
+      "true_negatives": 1196,
+      "false_positives": 404,
+      "false_negatives": 47,
+      "mean_processing_ms": 7.084438562,
+      "median_processing_ms": 6.38039,
+      "p95_processing_ms": 11.436478849999999
+    }
+  }
+}
