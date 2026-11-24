@@ -17,3 +17,13 @@ firebase-debug.log
 .DS_Store
 .idea/
 .vscode/
+
+# RoadSecure local runtime and build outputs
+!/.env.example
+monitoring.db
+database/runtime/
+node_modules/
+.next/
+playwright-report/
+test-results/
+*.tsbuildinfo
