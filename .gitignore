@@ -26,5 +26,6 @@ node_modules/
 .next/
 playwright-report/
 test-results/
+artifacts/
 *.tsbuildinfo
 backend/data/
