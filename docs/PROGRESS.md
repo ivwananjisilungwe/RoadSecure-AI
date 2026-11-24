@@ -22,3 +22,9 @@ Cloud runtime at kickoff: Git 2.56.1, Node 24.22.3, npm 11.19.1, Python 3.12.14,
 | RS-MVP-08 Windows and presentation | P0 | 01–07 | IN PROGRESS | Setup scripts, demonstration guide, and GitHub delivery |
 
 Legacy smoke rerun with an isolated environment passed all six route checks. The direct Git HTTPS push reported missing shell credentials. Authenticated GitHub delivery uses the connector with a verified branch head.
+
+## RS-MVP-08 delivery verification
+
+The FastAPI service, Next.js console, SQLite persistence, detector, simulator, alert queue, incident lifecycle, evaluation endpoint, Windows launcher scripts, CI workflow, and browser harness are implemented on `feature/mvp-demo-v1`. Backend detector tests pass 25/25. Frontend typecheck and production build pass. An in-process FastAPI acceptance check returned health 200, rejected unauthenticated events with 401, accepted login with 200, generated normal and combined events with 201, created one alert, and returned evaluation 200.
+
+The browser harness and Windows execution are included but were not executed end-to-end in this environment after the final integration commit. The feature branch is presentation-ready with this limitation. Main remains untouched.
