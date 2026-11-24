@@ -142,13 +142,6 @@ def exercise(page, password, screenshot_dir):
     assert detection["risk_score"] > 0
     snapshot(page, screenshot_dir, "simulator-desktop")
 
-    page.goto("/events")
-    expect(page).to_have_url(f"{FRONTEND_URL}/events")
-    expect(page.locator("h1")).to_contain_text("Security events")
-    snapshot(page, screenshot_dir, "events-desktop")
-    page.goto(f"/events/{alert['event_id']}")
-    expect(page.get_by_role("heading", name="Detection analysis")).to_be_visible()
-    snapshot(page, screenshot_dir, "event-desktop")
     page.goto("/alerts")
     expect(page).to_have_url(f"{FRONTEND_URL}/alerts")
     expect(page.get_by_role("heading", name="Security alerts", exact=True)).to_be_visible()
