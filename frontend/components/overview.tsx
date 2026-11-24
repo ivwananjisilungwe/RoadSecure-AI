@@ -1,7 +1,7 @@
 "use client";
 
 import { BarChart3, BrainCircuit, Gauge, Settings, ShieldCheck } from "lucide-react";
-import { api, date, title, type Evaluation as EvaluationData, type Summary } from "../lib/api";
+import { date, title, type Evaluation as EvaluationData, type Summary } from "../lib/api";
 import { useApi } from "./query";
 import { Badge, DataTable, DetailList, Distribution, Empty, ErrorState, Loading, Panel } from "./ui";
 import { AlertTable, EventTable } from "./monitor";
