@@ -3,7 +3,7 @@
 import { Activity, ArrowUpRight, CircleAlert, ClipboardCheck, Files, FileText, FlaskConical, Play, RadioTower, ShieldAlert, Square, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
-import { api, date, severities, title, write, type Event, type Incident } from "../lib/api";
+import { api, date, severities, title, write, type Account, type Event, type Incident } from "../lib/api";
 import { DetectionPanel, eventTypes, pageSize, sourceSystems } from "./monitor";
 import { useApi, useWrite } from "./query";
 import { Badge, Button, DataTable, DetailList, Empty, ErrorState, Loading, Pager, Panel, SearchInput, Select } from "./ui";
@@ -121,6 +121,8 @@ export function Incidents() {
   if (search.trim()) params.set("q", search.trim());
   if (status) params.set("status", status);
   const query = useApi<Incident[]>(`/incidents?${params}`, { interval: 10000 });
+  const users = useApi<Account[]>("/users");
+  const usernames = new Map(users.data?.map((user) => [user.id, user.username]));
   return <Panel title="Incident register" icon={Files} meta={<Button asChild><Link href="/alerts">Review alerts<ArrowUpRight size={15} /></Link></Button>}>
     <div className="filters">
       <SearchInput label="Search incidents" value={search} onChange={(value) => { setSearch(value); setPage(0); }} />
@@ -130,7 +132,7 @@ export function Incidents() {
       {query.data.length ? <DataTable headers={["Incident", "Priority", "Status", "Assigned to", "Last updated"]}>{query.data.map((incident) => <tr key={incident.id}>
         <td><Link className="table-link" href={`/incidents/${incident.id}`}>{incident.title}<ArrowUpRight size={13} /></Link><small>#{incident.id}</small></td>
         <td><Badge value={incident.priority} /></td><td><Badge value={incident.status} /></td>
-        <td>{incident.assigned_to || "Unassigned"}</td><td className="mono">{date(incident.updated_at)}</td>
+        <td>{incident.assigned_to ? usernames.get(incident.assigned_to) ?? `User #${incident.assigned_to}` : "Unassigned"}</td><td className="mono">{date(incident.updated_at)}</td>
       </tr>)}</DataTable> : <Empty>No incidents match this view. Create an incident from an alert.</Empty>}
       <Pager page={page} size={pageSize} currentCount={query.data.length} setPage={setPage} />
     </>}
@@ -146,13 +148,19 @@ export function IncidentDetails({ id }: { id: string }) {
 
 function IncidentContent({ incident }: { incident: Incident }) {
   const endpoint = `/incidents/${incident.id}`;
-  const update = useWrite((body: object) => api<Incident>(endpoint, write("PATCH", body)));
-  const addNote = useWrite((note: string) => api<Incident>(`${endpoint}/notes`, write("POST", { note })));
+  const users = useApi<Account[]>("/users");
+  const mutationScope = { id: `incident-${incident.id}` };
+  const update = useWrite((body: object) => api<Incident>(endpoint, write("PATCH", body)), { scope: mutationScope });
+  const addNote = useWrite((note: string) => api<Incident>(`${endpoint}/notes`, write("POST", { note })), { scope: mutationScope });
+  // Incident writes are revision-checked by the API. Serialize them in the UI so a
+  // status change cannot race a note, assignment, resolution, or closure request.
+  const mutating = update.isPending || addNote.isPending;
 
   function assignment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    update.mutate({ priority: form.get("priority"), assigned_to: String(form.get("assignedTo")).trim() || null });
+    const assignedTo = String(form.get("assignedTo"));
+    update.mutate({ priority: form.get("priority"), assigned_to: assignedTo ? Number(assignedTo) : null });
   }
 
   function add(event: FormEvent<HTMLFormElement>) {
@@ -174,7 +182,7 @@ function IncidentContent({ incident }: { incident: Incident }) {
         <Panel title={incident.title} icon={Files} meta={<Badge value={incident.status} />}>
           <DetailList items={[
             ["Incident", `#${incident.id}`], ["Priority", <Badge key="priority" value={incident.priority} />],
-            ["Assigned to", incident.assigned_to || "Unassigned"],
+            ["Assigned to", incident.assigned_to ? users.data?.find((user) => user.id === incident.assigned_to)?.username ?? `User #${incident.assigned_to}` : "Unassigned"],
             ["Alert evidence", <Link key="alert" className="table-link" href={`/alerts/${incident.alert_id}`}>Alert #{incident.alert_id}<ArrowUpRight size={13} /></Link>],
             ["Created (CAT)", date(incident.created_at)], ["Updated (CAT)", date(incident.updated_at)],
             ["Resolution", incident.resolution],
@@ -182,16 +190,17 @@ function IncidentContent({ incident }: { incident: Incident }) {
         </Panel>
         <Panel title="Incident workflow" icon={ClipboardCheck}>
           <ol className="lifecycle">{statuses.map((status) => <li key={status} aria-current={status === incident.status ? "step" : undefined}>{title(status)}</li>)}</ol>
-          {incident.status === "OPEN" && <Button type="button" variant="primary" disabled={update.isPending} onClick={() => update.mutate({ status: "INVESTIGATING" })}>Start investigation</Button>}
-          {incident.status === "INVESTIGATING" && <form className="form-stack" onSubmit={resolve}><label className="control">Resolution<textarea name="resolution" required maxLength={4000} rows={3} /></label><Button type="submit" variant="primary" disabled={update.isPending}>Resolve incident</Button></form>}
-          {incident.status === "RESOLVED" && <Button type="button" variant="primary" disabled={update.isPending} onClick={() => update.mutate({ status: "CLOSED" })}>Close incident</Button>}
+          {incident.status === "OPEN" && <Button type="button" variant="primary" disabled={mutating} onClick={() => update.mutate({ status: "INVESTIGATING" })}>{update.isPending ? "Starting investigation…" : "Start investigation"}</Button>}
+          {incident.status === "INVESTIGATING" && <form className="form-stack" onSubmit={resolve}><label className="control">Resolution<textarea name="resolution" required maxLength={4000} rows={3} disabled={mutating} /></label><Button type="submit" variant="primary" disabled={mutating}>{update.isPending ? "Resolving…" : "Resolve incident"}</Button></form>}
+          {incident.status === "RESOLVED" && <Button type="button" variant="primary" disabled={mutating} onClick={() => update.mutate({ status: "CLOSED" })}>{update.isPending ? "Closing…" : "Close incident"}</Button>}
           {incident.status === "CLOSED" && <p className="muted">Incident closed.</p>}
           {update.error && <ErrorState error={update.error} />}
         </Panel>
         {incident.status !== "CLOSED" && <Panel title="Assignment and priority" icon={Files}>
           <form className="form-stack" key={`${incident.priority}/${incident.assigned_to}`} onSubmit={assignment}>
-            <div className="form-row"><label className="control">Priority<select name="priority" defaultValue={incident.priority}>{severities.map((priority) => <option key={priority} value={priority}>{title(priority)}</option>)}</select></label><label className="control">Assigned to<input name="assignedTo" defaultValue={incident.assigned_to ?? ""} maxLength={100} /></label></div>
-            <Button type="submit" disabled={update.isPending}>Save assignment</Button>
+            <div className="form-row"><label className="control">Priority<select name="priority" defaultValue={incident.priority} disabled={mutating}>{severities.map((priority) => <option key={priority} value={priority}>{title(priority)}</option>)}</select></label><label className="control">Assigned to<select name="assignedTo" defaultValue={incident.assigned_to ?? ""} disabled={mutating}><option value="">Unassigned</option>{users.data?.map((user) => <option key={user.id} value={user.id}>{user.username} · {title(user.role)}</option>)}</select></label></div>
+            {users.error && <ErrorState error={users.error} />}
+            <Button type="submit" disabled={mutating}>{update.isPending ? "Saving…" : "Save assignment"}</Button>
           </form>
         </Panel>}
       </div>
@@ -200,7 +209,7 @@ function IncidentContent({ incident }: { incident: Incident }) {
           {incident.history?.length ? <ol className="timeline">{incident.history.map((item) => <li key={item.id}><div><strong>{title(item.action)}</strong><small>{date(item.created_at)}</small></div><p>{item.detail}</p><span>{item.username}</span></li>)}</ol> : <Empty>No recorded actions yet.</Empty>}
         </Panel>
         {incident.status !== "CLOSED" && <Panel title="Investigation notes" icon={FileText}>
-          <form className="form-stack" onSubmit={add}><label className="control">Investigation note<textarea name="note" required maxLength={4000} rows={4} /></label>{addNote.error && <ErrorState error={addNote.error} />}<Button type="submit" disabled={addNote.isPending}>Add note</Button></form>
+          <form className="form-stack" onSubmit={add}><label className="control">Investigation note<textarea name="note" required maxLength={4000} rows={4} disabled={mutating} /></label>{addNote.error && <ErrorState error={addNote.error} />}<Button type="submit" disabled={mutating}>{addNote.isPending ? "Adding note…" : update.isPending ? "Waiting for status update…" : "Add note"}</Button></form>
         </Panel>}
       </div>
     </div>

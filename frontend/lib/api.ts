@@ -47,7 +47,7 @@ export type Incident = {
   alert_id: number;
   title: string;
   priority: Severity;
-  assigned_to: string | null;
+  assigned_to: number | null;
   status: "OPEN" | "INVESTIGATING" | "RESOLVED" | "CLOSED";
   resolution: string | null;
   created_at: string;
@@ -88,7 +88,7 @@ export type Metrics = {
 };
 export type Evaluation = {
   model: { version: string; feature_schema: string[]; decision_threshold: number; training_timestamp: string };
-  datasets: Record<"train" | "validation" | "test", { count: number; seed: number; fingerprint: string }>;
+  datasets: Record<"train" | "validation" | "test", { count: number; anomalies: number; seed: number; fingerprint: string }>;
   experiments: Record<"rules" | "isolation_forest" | "hybrid", Metrics>;
 };
 

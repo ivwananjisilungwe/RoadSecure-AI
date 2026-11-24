@@ -2,6 +2,7 @@
 
 import argparse
 import contextlib
+import json
 import os
 from pathlib import Path
 import re
@@ -85,6 +86,51 @@ def snapshot(page, directory, label):
         page.screenshot(path=str(directory / f"{label}.png"), full_page=True, animations="disabled")
 
 
+def capture_diagnostics(page):
+    console_errors = []
+    api_failures = []
+    page.on("console", lambda message: console_errors.append(message.text) if message.type == "error" else None)
+    page.on("pageerror", lambda error: console_errors.append(str(error)))
+
+    def record_response(response):
+        if "/api/v1/" not in response.url or response.status < 400:
+            return
+        try:
+            body = response.text()
+        except Exception:
+            body = "<unavailable>"
+        api_failures.append({
+            "method": response.request.method,
+            "url": response.url,
+            "status": response.status,
+            "body": body,
+        })
+
+    page.on("response", record_response)
+    return console_errors, api_failures
+
+
+def capture_workspace(page, directory, incident_id, incident_title, alert_id):
+    screens = (
+        ("/", "dashboard", "Security overview"),
+        ("/events", "events", "Security events"),
+        ("/simulator", "simulator", "Simulate activity"),
+        ("/alerts", "alerts", "Security alerts"),
+        (f"/alerts/{alert_id}", "alert-details", f"Alert #{alert_id}"),
+        ("/incidents", "incidents", "Incident management"),
+        (f"/incidents/{incident_id}", "incident-details", incident_title),
+        ("/reports", "reports", "Reports and analytics"),
+        ("/evaluation", "evaluation", "Model evaluation"),
+        ("/settings", "settings", "Settings"),
+    )
+    for width, height, size in ((1440, 900, "desktop"), (1280, 800, "laptop"), (390, 844, "mobile")):
+        page.set_viewport_size({"width": width, "height": height})
+        for path, label, heading in screens:
+            page.goto(path)
+            expect(page.get_by_role("heading", name=heading, exact=False)).to_be_visible()
+            snapshot(page, directory, f"{label}-{size}")
+
+
 def details_link(page, section):
     matches = page.locator(f'a[href^="/{section}/"]')
     expect(matches).not_to_have_count(0)
@@ -96,6 +142,10 @@ def exercise(page, password, screenshot_dir):
     expect(page.get_by_role("button", name="Sign in", exact=True)).to_be_visible()
     assert page.request.get(f"{FRONTEND_URL}/api/v1/events").status == 401
     snapshot(page, screenshot_dir, "login-desktop")
+    for width, height, label in ((1280, 800, "laptop"), (390, 844, "mobile")):
+        page.set_viewport_size({"width": width, "height": height})
+        snapshot(page, screenshot_dir, f"login-{label}")
+    page.set_viewport_size({"width": 1440, "height": 900})
 
     page.get_by_label("Username", exact=True).fill("admin")
     password_input = page.get_by_label(re.compile(r"^Password\b"))
@@ -155,20 +205,38 @@ def exercise(page, password, screenshot_dir):
     page.get_by_role("button", name="Create incident", exact=True).click()
     expect(page).to_have_url(re.compile(r"/incidents/[^/]+$"))
 
+    admin_id = api_records(page, "auth/me")["id"]
+    page.locator('select[name="assignedTo"]').select_option(str(admin_id))
+    with page.expect_response(
+        lambda response: "/api/v1/incidents/" in response.url
+        and response.request.method == "PATCH"
+    ) as assignment_response:
+        page.get_by_role("button", name="Save assignment", exact=True).click()
+    assert assignment_response.value.ok
+
     page.get_by_role("button", name="Start investigation", exact=True).click()
     note = "Reviewed synthetic event and confirmed related alert."
     page.get_by_role("textbox", name="Investigation note", exact=True).fill(note)
     page.get_by_role("button", name="Add note", exact=True).click()
     expect(page.get_by_text(note, exact=True)).to_be_visible()
+    snapshot(page, screenshot_dir, "incident-investigation-desktop")
     resolution = "Closed the synthetic investigation after reviewing the detection evidence."
     page.get_by_role("textbox", name="Resolution", exact=True).fill(resolution)
-    page.get_by_role("button", name="Resolve incident", exact=True).click()
+    with page.expect_response(
+        lambda response: "/api/v1/incidents/" in response.url
+        and response.request.method == "PATCH"
+    ) as resolve_response:
+        page.get_by_role("button", name="Resolve incident", exact=True).click()
+    assert resolve_response.value.ok
+    assert resolve_response.value.json()["status"] == "RESOLVED"
+    expect(page.get_by_role("button", name="Close incident", exact=True)).to_be_visible()
     with page.expect_response(
         lambda response: "/api/v1/incidents/" in response.url
         and response.request.method == "PATCH"
     ) as close_response:
         page.get_by_role("button", name="Close incident", exact=True).click()
     assert close_response.value.ok
+    assert close_response.value.json()["status"] == "CLOSED"
     incident_url = page.url
     incident_path = incident_url.split("/")[-1]
     incident = api_records(page, f"incidents/{incident_path}")
@@ -193,6 +261,7 @@ def exercise(page, password, screenshot_dir):
             for key in ("true_positives", "true_negatives", "false_positives", "false_negatives")
         ) == test_count
     snapshot(page, screenshot_dir, "evaluation-desktop")
+    capture_workspace(page, screenshot_dir, incident["id"], incident["title"], alert["id"])
 
     page.goto("/")
     expect(page.get_by_role("link", name="Simulate Activity", exact=True)).to_be_visible()
@@ -222,6 +291,8 @@ def main():
         }
         backend_log = temp / "backend.log"
         frontend_log = temp / "frontend.log"
+        console_errors = []
+        api_failures = []
         try:
             subprocess.run(
                 [sys.executable, "-m", "app.detection", "train"],
@@ -243,6 +314,7 @@ def main():
                 page = browser.new_page(
                     base_url=FRONTEND_URL, viewport={"width": 1440, "height": 900}
                 )
+                console_errors, api_failures = capture_diagnostics(page)
                 backend_options = {
                     "cwd": ROOT,
                     "env": env,
@@ -258,8 +330,25 @@ def main():
                     assert restored == incident, "Incident changed after a clean backend restart"
                     assert len(api_records(page, "events")) == 2
                     assert len(api_records(page, "alerts")) == 1
+                    page.get_by_role("button", name="Sign out", exact=True).click()
+                    expect(page).to_have_url(f"{FRONTEND_URL}/login")
+                unexpected = [
+                    failure for failure in api_failures
+                    if not (
+                        failure["status"] == 401
+                        and failure["url"].endswith(("/api/v1/auth/login", "/api/v1/auth/me"))
+                    )
+                ]
+                assert not unexpected, f"Unexpected API failures: {json.dumps(unexpected, indent=2)}"
+                unexpected_console = [
+                    message for message in console_errors
+                    if "401" not in message and "Failed to load resource" not in message
+                ]
+                assert not unexpected_console, f"Browser console errors: {json.dumps(unexpected_console, indent=2)}"
                 browser.close()
         except Exception:
+            print(f"\nAPI failures: {json.dumps(api_failures, indent=2)}", file=sys.stderr)
+            print(f"\nConsole errors: {json.dumps(console_errors, indent=2)}", file=sys.stderr)
             for log in sorted(temp.glob("*.log")):
                 print(f"\n{log.name}\n{log.read_text(encoding='utf-8', errors='replace')}", file=sys.stderr)
             raise

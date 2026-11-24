@@ -12,10 +12,11 @@ export function useApi<T>(path: string, options?: { interval?: number; enabled?:
   });
 }
 
-export function useWrite<T, V>(operation: (variables: V) => Promise<T>) {
+export function useWrite<T, V>(operation: (variables: V) => Promise<T>, options?: { scope?: { id: string } }) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: operation,
+    scope: options?.scope,
     onSuccess: () => {
       void queryClient.invalidateQueries({ predicate: ({ queryKey }) => queryKey[0] !== "/auth/me" });
     },

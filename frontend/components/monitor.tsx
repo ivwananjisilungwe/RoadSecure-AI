@@ -4,7 +4,7 @@ import { Activity, ArrowUpRight, CircleAlert, FilePlus2, RefreshCw, ScanLine } f
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
-import { api, date, severities, title, write, type Alert, type Event, type Incident } from "../lib/api";
+import { api, date, severities, title, write, type Account, type Alert, type Event, type Incident } from "../lib/api";
 import { useApi, useWrite } from "./query";
 import { Badge, Button, DataTable, DetailList, Empty, ErrorState, Loading, Pager, Panel, SearchInput, Select, SeveritySelect } from "./ui";
 
@@ -166,6 +166,7 @@ function AlertContent({ alert }: { alert: AlertWithIncident }) {
   const review = useWrite((status: string) => api(`/alerts/${alert.id}`, write("PATCH", { status })));
   const create = useWrite((form: { title: string; priority: string; assigned_to?: string }) => api<Incident>("/incidents", write("POST", { ...form, alert_id: alert.id })));
   const related = useApi<Incident[]>(`/incidents?alert_id=${alert.id}&limit=1`, { enabled: !alert.incident_id });
+  const users = useApi<Account[]>("/users", { enabled: !alert.incident_id });
   const existingIncident = alert.incident_id ?? related.data?.find((incident) => incident.alert_id === alert.id)?.id;
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -198,9 +199,10 @@ function AlertContent({ alert }: { alert: AlertWithIncident }) {
       <Panel title="Incident response" icon={FilePlus2}>{existingIncident
         ? <Button asChild variant="primary"><Link href={`/incidents/${existingIncident}`}>Open incident #{existingIncident}<ArrowUpRight size={16} /></Link></Button>
         : <form className="form-stack" onSubmit={submit}>
-          <label className="control">Title<input name="title" required maxLength={150} defaultValue={`Investigate ${title(alert.event.source_system).toLowerCase()} alert #${alert.id}`} /></label>
+          <label className="control">Title<input name="title" required maxLength={120} defaultValue={`Investigate ${title(alert.event.source_system).toLowerCase()} alert #${alert.id}`} /></label>
           <div className="form-row"><label className="control">Priority<select name="priority" defaultValue={alert.severity}>{severities.map((severity) => <option key={severity} value={severity}>{title(severity)}</option>)}</select></label>
-            <label className="control">Assigned to<input name="assignedTo" maxLength={100} placeholder="Analyst username" /></label></div>
+            <label className="control">Assigned to<select name="assignedTo" defaultValue=""><option value="">Unassigned</option>{users.data?.map((user) => <option key={user.id} value={user.id}>{user.username} · {title(user.role)}</option>)}</select></label></div>
+          {users.error && <ErrorState error={users.error} />}
           {create.error && <ErrorState error={create.error} />}
           <Button variant="primary" type="submit" disabled={create.isPending}><FilePlus2 size={16} />{create.isPending ? "Creating…" : "Create incident"}</Button>
         </form>}</Panel>
