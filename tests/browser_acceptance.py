@@ -145,7 +145,6 @@ def exercise(page, password, screenshot_dir):
     page.goto("/events")
     expect(page).to_have_url(f"{FRONTEND_URL}/events")
     expect(page.locator("h1")).to_contain_text("Security events")
-    page.locator("select").first.select_option(alert["severity"])
     snapshot(page, screenshot_dir, "events-desktop")
     page.goto(f"/events/{alert['event_id']}")
     expect(page.get_by_role("heading", name="Detection analysis")).to_be_visible()
