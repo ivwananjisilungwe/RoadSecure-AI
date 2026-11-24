@@ -33,11 +33,16 @@ def create_app():
     async def lifespan(app: FastAPI):
         directory = Path(os.environ.get("ROADSECURE_DATA_DIR", DEFAULT_DATA_DIR)).resolve()
         directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+        os.chmod(directory, 0o700)
         app.state.signing_key = load_signing_key(directory)
         app.state.secure_cookies = os.environ.get("ROADSECURE_SECURE_COOKIES") == "1"
         app.state.login_limiter = LoginLimiter()
         app.state.dummy_hash = password_hash.hash("roadsecure-dummy-hash")
         engine, app.state.session_factory = initialise_database(directory)
+        for suffix in ("", "-wal", "-shm"):
+            database_file = directory / f"roadsecure.sqlite3{suffix}"
+            if database_file.exists():
+                os.chmod(database_file, 0o600)
         try:
             bootstrap_admin(app.state.session_factory)
             app.state.detector = Detector.load()

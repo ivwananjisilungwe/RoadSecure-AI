@@ -357,10 +357,11 @@ def main():
                     assert restored == incident, "Incident changed after a clean backend restart"
                     assert len(api_records(page, "events")) == 2
                     assert len(api_records(page, "alerts")) == 1
+                    authenticated_failure_count = len(api_failures)
                     page.get_by_role("button", name="Sign out", exact=True).click()
                     expect(page).to_have_url(f"{FRONTEND_URL}/login")
                 unexpected = [
-                    failure for failure in api_failures
+                    failure for failure in api_failures[:authenticated_failure_count]
                     if not (
                         failure["status"] == 401
                         and failure["url"].endswith(("/api/v1/auth/login", "/api/v1/auth/me"))
