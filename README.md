@@ -1,34 +1,26 @@
-# RoadSecure — Cybersecurity Monitoring System for Road Transport Information Systems
+# RoadSecure AI
 
-A local, defensive academic prototype implementing machine-learning anomaly detection, prioritised alerts, an activity register, incident records and an evaluation page.
+RoadSecure AI is a Mulungushi University ICT431 project that explores cybersecurity monitoring for road transport information systems. An operator generates synthetic telemetry, inspects rules and Isolation Forest results, and investigates alerts in a local security dashboard.
 
-## Run on Windows
-1. Install Python 3.10+.
-2. Extract this ZIP and open Command Prompt in the `RoadSecurePrototype` folder.
-3. Run:
-   ```bat
-   py -m venv venv
-   venv\Scripts\activate
-   pip install -r requirements.txt
-   python app.py
-   ```
-4. Open http://127.0.0.1:5000
+## Start on Windows
 
-## Run on Linux/macOS
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python app.py
+Install **Python 3.12** with the Python launcher, **Node.js 22 LTS**, and Git. In a VS Code terminal at the repository root, run:
+
+```powershell
+.\setup.bat
+.\start.bat
 ```
 
-## Demonstration
-- Dashboard: review seeded synthetic activity and alert totals.
-- Simulate Activity: submit normal or suspicious behaviour. Try 8 failed logins, 220 requests/minute, 75 MB sent, 6 port scans and all four risk checkboxes.
-- Activity & Alerts: inspect anomaly score/severity and change event status.
-- Incident Management: create incident records linked to detected anomalies.
-- Evaluation: review counts and metric formulas.
-- `GET /api/summary`: JSON summary endpoint.
+Enter an administrator password of at least 12 characters on the first launch. Open [the dashboard](http://localhost:3000) and sign in as `admin`. On later launches, press Enter at the bootstrap prompt and sign in with the original password. Stop both application processes using Ctrl+C in their terminal or `.\stop.bat` from another terminal.
 
-## Important limitations
-This is an isolated prototype using generated synthetic records. It does not connect to live transport systems, real devices, payment platforms or government databases. The Isolation Forest detector is trained on synthetic normal baseline data. The evaluation page intentionally does not claim accuracy, false-positive rate or response-time results without independent labelled test data and measured timings. There is no production authentication, role-based access control, TLS, hardened deployment or tamper-resistant audit trail. Keep it local; do not expose it to the public internet. Change `SECRET_KEY` and deployment settings before any non-demo use.
+[Windows setup and manual fallback](docs/WINDOWS_SETUP.md) · [Presentation guide](docs/DEMONSTRATION.md)
+
+## Architecture
+
+The Next.js App Router console uses same-origin requests to reach FastAPI. The Python service runs weighted detection rules and a trained scikit-learn Isolation Forest, then stores security events, alerts, and incident history in SQLite. [Architecture](docs/ARCHITECTURE.md) · [ML evaluation](docs/ML_EVALUATION.md)
+
+## Verification
+
+Run `python -m pytest backend/tests` with the backend dependencies installed, and `npm run lint`, `npm run typecheck`, and `npm run build` from `frontend/`. The GitHub Actions workflow also runs a production browser acceptance test. See [acceptance and evidence](docs/MVP_ACCEPTANCE.md).
+
+The original Flask prototype and design references remain in the root and `design/`. Use the Next.js and FastAPI application for the presentation.

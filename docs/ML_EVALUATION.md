@@ -14,7 +14,7 @@ python -m app.detection evaluate
 python -m pytest tests/test_detection.py -q
 ```
 
-Training creates a local Joblib pipeline and `evaluation.json` under `backend/data/`, or under the directory specified by `ROADSECURE_DATA_DIR`. The evaluation command reloads the pipeline, verifies the regenerated test dataset against its fingerprint, and reruns the test experiment with fresh latency measurements. Use locally generated model artifacts only. Retrain after changes to dependencies, the feature schema or synthetic distributions.
+Training creates a local Joblib pipeline and `evaluation.json` under `database/runtime/`, or under the directory specified by `ROADSECURE_DATA_DIR`. The evaluation command reloads the pipeline, verifies the regenerated test dataset against its fingerprint, and reruns the test experiment with fresh latency measurements. Use locally generated model artifacts only. Retrain after changes to dependencies, the feature schema or synthetic distributions.
 
 ## Dataset and model
 

@@ -29,7 +29,7 @@ ML_CONTRIBUTION = 20
 
 
 def model_path() -> Path:
-    default = Path(__file__).resolve().parents[1] / "data"
+    default = Path(__file__).resolve().parents[2] / "database" / "runtime"
     return Path(os.getenv("ROADSECURE_DATA_DIR", str(default))) / MODEL_FILENAME
 
 
@@ -80,8 +80,9 @@ class Detector:
         matches = evaluate_rules(event)
         score = self.score(event)
         anomalous = score >= self.threshold
-        risk_score = min(100, sum(match["risk_contribution"] for match in matches)
-                         + (ML_CONTRIBUTION if anomalous else 0))
+        rules_score = sum(match["risk_contribution"] for match in matches)
+        model_score = ML_CONTRIBUTION if anomalous else 0
+        risk_score = min(100, rules_score + model_score)
         should_alert = bool(matches or anomalous)
         return {
             "rule_results": matches,
@@ -103,7 +104,6 @@ def _dataset_summary(dataset: Dataset) -> dict:
         "seed": dataset.seed,
         "fingerprint": digest,
     }
-
 
 
 def run_experiments(detector: Detector, test: Dataset) -> dict:
